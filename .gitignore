@@ -31,3 +31,5 @@ bin/
 
 ### Personal ###
 .csv
+/resource/
+/output/
