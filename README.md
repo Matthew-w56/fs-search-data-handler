@@ -22,11 +22,11 @@ Date: June 2023
       it is set up to easily allow you to change what the program is expecting by changing
       the static constant in that class.)
   5) Move the downloaded files into the /resource/ folder you created.
-  5) Go to the Application.java class and specify which methods of DataHandler's you want
+  6) Go to the Application.java class and specify which methods of DataHandler's you want
       to run in the main method (All methods and their descriptions are found in DataHandler.java).
-  6) Make sure to specify what you want each output file name to be, then run the program.
-  7) The output files will appear within the /output/ folder you created.
-  8) These files are structured specifically to be graphed, so creating graphs from the data with
+  7) Make sure to specify what you want each output file name to be, then run the program.
+  8) The output files will appear within the /output/ folder you created.
+  9) These files are structured specifically to be graphed, so creating graphs from the data with
       tools such as Excel or others should be quite easy.
 
 # Confluence
