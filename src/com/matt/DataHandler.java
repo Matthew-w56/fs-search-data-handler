@@ -245,6 +245,87 @@ public class DataHandler {
       
    }
    
+   /**
+    * Creates a dataset with three values.
+    * The first is the total number of dates searched.
+    * The second is the total number of searched dates that fell after
+    *    the given cutoffs
+    * The third is the ratio of living to total dates searched, multiplied by 10,000
+    * (because the data structure only supports Integers)
+    *
+    * @param outputFile Filename to have results saved to.  Make sure this is a .csv filename
+    * @param birthCutoff The first year that will be considered the birth of a likely living person
+    * @param otherCutoff The first year that will be considered an event of a likely living person (doesn't include death dates)
+    */
+   public static void livingPersonsPercentageStats(String outputFile, int birthCutoff, int otherCutoff) {
+      verifyDataSources();
+      
+      //Initialize the data structure to hold the sums
+      int totalSum = 0;
+      int livingSum = 0;
+      
+      //Part 1: Read in data from the sources
+      for (String dataSource: DATA_SOURCES) {
+         try (BufferedReader reader = new BufferedReader(new FileReader(dataSource))) {
+            
+            String line;
+            reader.readLine(); //Clear out headers
+            while (( line = reader.readLine() ) != null) {
+               
+               String[] parts = line.split(",");
+               
+               //Get the year of this row
+               int rowYear;
+               if (parts[0].equals(STAR)) {
+                  rowYear = 0;
+               } else {
+                  rowYear = Integer.parseInt(parts[0]);
+               }
+               
+               //Get the counts from this row
+               int anyCount = parts.length < 3 || parts[2].isEmpty() ? 0 : Integer.parseInt(parts[2]);
+               int fromCount = parts.length < 4 || parts[3].isEmpty() ? 0 : Integer.parseInt(parts[3]);
+               int toCount = parts.length < 5 || parts[4].isEmpty() ? 0 : Integer.parseInt(parts[4]);
+               int rowCount = anyCount + fromCount + toCount;
+               
+               //All counts get added to the total
+               totalSum += rowCount;
+               
+               //Add them in to the living persons total depending on the date type
+               switch (parts[1]) {
+                  case "birth":
+                     if (rowYear >= birthCutoff) { livingSum += rowCount; }
+                     break;
+                  case "death":
+                     //Death dates do not get added to living person counts
+                     break;
+                  case "residence":
+                  case "any":
+                  case "other":
+                  case "marriage":
+                     if (rowYear >= otherCutoff) { livingSum += rowCount; }
+                     break;
+                  default:
+                     System.out.println("Skipping line: Could not find index for type "
+                                        + parts[1] + " within " + dataSource + " at year "
+                                        + rowYear + "!");
+                     continue;
+               }
+            }
+         } catch (Exception e) {
+            System.out.println("Exception occured during \"searchedYearsAcrossAllSystems\" READ with file " + dataSource
+                               + "!\n" + e.getMessage());
+            e.printStackTrace();
+         }
+      }
+      
+      //Create table from statistics
+      ArrayList<List<Integer>> table = new ArrayList<>();
+      table.add(Arrays.asList(totalSum, livingSum, (int)(( (double)livingSum / (double)totalSum ) * 10000) ));
+      
+      writeTableToFile(table, outputFile, "totalSum,livingSum,ratio10000");
+   }
+   
    //----------------[ Helper Methods ]-------------------------
    
    /**
