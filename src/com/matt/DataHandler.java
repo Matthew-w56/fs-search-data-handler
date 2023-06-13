@@ -332,7 +332,7 @@ public class DataHandler {
    
    /**
     * Creates a dataset that shows how many of the (probable) living person queries
-    * come from each system (hr, tree, lls).  Recommended chart type: Bar graph.
+    * come from each system (hr, tree, lls).  Recommended chart type: Pie Chart.
     * <br><br>
     * Output is in the format: "hr,tree,lls"
     *
