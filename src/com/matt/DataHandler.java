@@ -23,7 +23,7 @@ public class DataHandler {
     *
     * @param outputFile Filename to have results saved to.  Make sure this is a .csv filename.
     * @param bucketSize Size of bucket to group years into.  Use 1 to avoid any bucketing.
-    * @param stopYear The year after which all results are grouped together (for outlier years)
+    * @param stopYear The year after which all results are grouped together (Helps deal with outliers)
     */
    public static void searchedYearsAcrossAllSystems(String outputFile, int bucketSize, int stopYear) {
       verifyDataSources();
@@ -104,6 +104,7 @@ public class DataHandler {
     *
     * @param outputFile Filename to have results saved to.  Make sure this is a .csv filename.
     * @param bucketSize Size of bucket to group years into.  Use 1 to avoid any bucketing.
+    * @param stopYear The year after which all results are grouped together (Helps deal with outliers)
     */
    public static void birthYearSearchesBySystem(String outputFile, int bucketSize, int stopYear) {
       verifyDataSources();
@@ -251,7 +252,7 @@ public class DataHandler {
     * The second is the total number of searched dates that fell after
     *    the given cutoffs
     * The third is the ratio of living to total dates searched, multiplied by 10,000
-    * (because the data structure only supports Integers)
+    * (because the data structure only supports Integers.)
     * Recommended chart type: Pie chart.
     * <br><br>
     * Output is in the format: "totalSum, livingSum, ratio10000"

@@ -17,11 +17,12 @@ public class Application {
    
    public static void main(String[] args) {
       
-      //DataHandler.searchedYearsAcrossAllSystems("searchYearsAcrossAllSystemsShortBucket.csv", 4, DEFAULT_STOP_YEAR);
-      //DataHandler.birthYearSearchesBySystem("birthYearsBySystem.csv", DEFAULT_BUCKET_SIZE, DEFAULT_STOP_YEAR);
-      //DataHandler.yearTypesSearchedBySystem("yearTypesBySystem.csv");
+      DataHandler.searchedYearsAcrossAllSystems("searchYearsAcrossAllSystemsShortBucket.csv", 4, DEFAULT_STOP_YEAR);
+      DataHandler.birthYearSearchesBySystem("birthYearsBySystem.csv", DEFAULT_BUCKET_SIZE, DEFAULT_STOP_YEAR);
+      DataHandler.yearTypesSearchedBySystem("yearTypesBySystem.csv");
       DataHandler.livingPersonsPercentageStats("livingPersonsStatistics.csv", BIRTH_YEAR_LIVING_CUTOFF, OTHER_YEAR_LIVING_CUTOFF, DEFAULT_STOP_YEAR);
       DataHandler.livingPersonSearchesBySystem("livingPersonsBySystem.csv", BIRTH_YEAR_LIVING_CUTOFF, OTHER_YEAR_LIVING_CUTOFF, DEFAULT_STOP_YEAR);
+      
    }
    
 }
