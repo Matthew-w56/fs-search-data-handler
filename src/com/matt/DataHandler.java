@@ -294,7 +294,7 @@ public class DataHandler {
                //Add them in to the living persons total depending on the date type
                switch (parts[1]) {
                   case "birth":
-                     if (rowYear >= birthCutoff) { livingSum += rowCount; }
+                     if (rowYear >= birthCutoff && rowYear <= 2023) { livingSum += rowCount; }
                      break;
                   case "death":
                      //Death dates do not get added to living person counts
@@ -303,7 +303,7 @@ public class DataHandler {
                   case "any":
                   case "other":
                   case "marriage":
-                     if (rowYear >= otherCutoff) { livingSum += rowCount; }
+                     if (rowYear >= otherCutoff && rowYear <= 2023) { livingSum += rowCount; }
                      break;
                   default:
                      System.out.println("Skipping line: Could not find index for type "
