@@ -6,39 +6,45 @@ import java.util.Arrays;
 import java.util.List;
 
 public class DataHandler {
-   private static final String STAR = "\"*\"";
-   private static final String PATH_TO_OUTPUT = "output/";
-   private static final String DATA_SOURCE_HR = "resource/allSearchYearsHR.csv";
-   private static final String DATA_SOURCE_TREE = "resource/allSearchYearsTree.csv";
-   private static final String DATA_SOURCE_LLS = "resource/allSearchYearsLLS.csv";
-   private static final String[] DATA_SOURCES = {DATA_SOURCE_HR, DATA_SOURCE_TREE, DATA_SOURCE_LLS};
+   private static final String STAR = "*";
+   private static final String PATH_TO_OUTPUT_FOLDER = "output/";
    
+   private static final String DATA_SOURCE_HR_A = "resource/allSearchYearsHR.csv";
+   private static final String DATA_SOURCE_TREE_A = "resource/allSearchYearsTree.csv";
+   private static final String DATA_SOURCE_LLS_A = "resource/allSearchYearsLLS.csv";
+   
+   //These sources are the ones that include queries that had a death date included
+   private static final String DATA_SOURCE_HR_B = "resource/allSearchYearsHRWithDeaths.csv";
+   private static final String DATA_SOURCE_TREE_B = "resource/allSearchYearsTreeWithDeaths.csv";
+   private static final String DATA_SOURCE_LLS_B = "resource/allSearchYearsLLSWithDeaths.csv";
+   
+   private static final String[] DATA_SOURCES_A = { DATA_SOURCE_HR_A, DATA_SOURCE_TREE_A, DATA_SOURCE_LLS_A};
+   private static final String[] DATA_SOURCES_B = {DATA_SOURCE_HR_B, DATA_SOURCE_TREE_B, DATA_SOURCE_LLS_B};
+   private static final String[] ALL_DATA_SOURCES = { DATA_SOURCE_HR_A, DATA_SOURCE_TREE_A, DATA_SOURCE_LLS_A,
+                                                      DATA_SOURCE_HR_B, DATA_SOURCE_TREE_B, DATA_SOURCE_LLS_B};
    
    /**
-    * Creates a dataset that reflects the number of times that each
-    * year is searched for in three categories (birth, death, and other) across any
-    * of the systems (HR, Tree, and LLS). Recommended chart type: Multiple Line Graph.
+    * Creates a dataset that reflects the length of date ranges people are searching for.  This is
+    * bucketed into groups of the size given.  Recommended chart type: Bar Graph.
     * <br><br>
-    * Output is in the format: "year,birth,death,other"
+    * Output is in the format: "length,count"
     *
     * @param outputFile Filename to have results saved to.  Make sure this is a .csv filename.
-    * @param bucketSize Size of bucket to group years into.  Use 1 to avoid any bucketing.
-    * @param stopYear The year after which all results are grouped together (Helps deal with outliers)
+    * @param bucketSize Size of bucket to group range lengths into.  Use 1 to avoid any bucketing.
+    * @param stopLength The length beyond which all results are grouped together (Helps deal with outliers)
     */
-   public static void searchedYearsAcrossAllSystems(String outputFile, int bucketSize, int stopYear) {
-      verifyDataSources();
+   public static void dateRangeLengths(String outputFile, int bucketSize, int stopLength) {
       
       //Initialize the data structure to hold the sums
       ArrayList<List<Integer>> table = new ArrayList<>();
-      int bucketCount = (stopYear / bucketSize) + 1;
+      int bucketCount = (stopLength / bucketSize) + 1;
       for (int i = 0; i < bucketCount; i++) {
-         table.add(Arrays.asList(i * bucketSize, 0, 0, 0));
+         table.add(Arrays.asList(i * bucketSize, 0));
       }
-      table.add(Arrays.asList(-1, 0, 0, 0));
+      table.add(Arrays.asList(-1, 0));
       int starIndex = table.size() - 1;
       
-      //Part 1: Read in data from the sources
-      for (String dataSource: DATA_SOURCES) {
+      for (String dataSource: ALL_DATA_SOURCES) {
          try (BufferedReader reader = new BufferedReader(new FileReader(dataSource))) {
             
             String line;
@@ -47,42 +53,124 @@ public class DataHandler {
                
                String[] parts = line.split(",");
                
-               //Handle the first entry: Turn year into year bucket index
-               int yearBucketIndex = (parts[0].equals(STAR)
+               int rowCount = Integer.parseInt(parts[1]);
+               String[] dateParts = parts[0].replaceAll("\"", "").split(";");
+               String dateType = dateParts[0];
+               if (dateParts.length != 3)
+                  continue;
+               
+               int rowIndex;
+               if (dateParts[1].equals(STAR) || dateParts[2].equals(STAR)) {
+                  rowIndex = starIndex;
+               }
+               else {
+                  int rangeLength = Integer.parseInt(dateParts[2]) - Integer.parseInt(dateParts[1]);
+                  rowIndex = Math.min(rangeLength, stopLength) / bucketSize;
+               }
+               if (rowIndex < 0)
+                  continue;
+               
+               //Actually add the data to the table
+               List<Integer> entry = table.get(rowIndex);
+               //Design choice: Add the Any, From, and To as all the same thing. (treat From just like Any)
+               entry.set(1, entry.get(1) + rowCount);
+               
+            }
+         }
+         catch (Exception e) {
+            System.out.println("Exception occured during \"dateRangeLengths\" READ with file " + dataSource
+                               + "!\n" + e.getMessage());
+            e.printStackTrace();
+         }
+      }
+      
+      writeTableToFile(table, outputFile, "length,count");
+      
+   }
+   
+   
+   /**
+    * Creates a dataset that reflects the number of times that each
+    * year is searched for in four categories (birth, death, any, and other) across any
+    * of the systems (HR, Tree, and LLS). Recommended chart type: Multiple Line Graph.
+    * <br><br>
+    * Output is in the format: "year,birth,death,any,other"
+    *
+    * @param outputFile Filename to have results saved to.  Make sure this is a .csv filename.
+    * @param bucketSize Size of bucket to group years into.  Use 1 to avoid any bucketing.
+    * @param stopYear The year after which all results are grouped together (Helps deal with outliers)
+    */
+   public static void searchedYearsByType(String outputFile, int bucketSize, int stopYear) {
+      verifyDataSources();
+      
+      //Initialize the data structure to hold the sums
+      ArrayList<List<Integer>> table = new ArrayList<>();
+      int bucketCount = (stopYear / bucketSize) + 1;
+      for (int i = 0; i < bucketCount; i++) {
+         table.add(Arrays.asList(i * bucketSize, 0, 0, 0, 0));
+      }
+      table.add(Arrays.asList(-1, 0, 0, 0, 0));
+      int starIndex = table.size() - 1;
+      
+      //Part 1: Read in data from the sources
+      for (String dataSource: ALL_DATA_SOURCES) {
+         try (BufferedReader reader = new BufferedReader(new FileReader(dataSource))) {
+            
+            String line;
+            reader.readLine(); //Clear out headers
+            while (( line = reader.readLine() ) != null) {
+               
+               String[] parts = line.split(",");
+               
+               int rowCount = Integer.parseInt(parts[1]);
+               String[] dateParts = parts[0].replaceAll("\"", "").split(";");
+               String dateType = dateParts[0];
+               
+               int yearBucketIndex = (dateParts[1].equals(STAR)
                                       ? starIndex
-                                      : (Math.min(Integer.parseInt(parts[0]), stopYear) / bucketSize));
+                                      : (Math.min(Integer.parseInt(dateParts[1]), stopYear) / bucketSize));
+               int yearBucketIndex2 = -1;
+               if (dateParts.length > 2) {
+                  yearBucketIndex2 = (dateParts[2].equals(STAR)
+                                      ? starIndex
+                                      : (Math.min(Integer.parseInt(dateParts[2]), stopYear) / bucketSize));
+               }
                
                //Handle the second entry: Turn year type into year type index
                int columnIndex;
-               switch (parts[1]) {
+               switch (dateType) {
                   case "birth":
                      columnIndex = 1;
                      break;
                   case "death":
                      columnIndex = 2;
                      break;
-                  case "residence":
                   case "any":
+                     columnIndex = 3;
+                     break;
+                  case "residence":
                   case "other":
                   case "marriage":
-                     columnIndex = 3;
+                     columnIndex = 4;
                      break;
                   default:
                      System.out.println("Skipping line: Could not find index for type "
-                                        + parts[1] + " within " + dataSource + " at year index "
+                                        + dateType + " within " + dataSource + " at year index "
                                         + yearBucketIndex + "!");
                      continue;
                }
                
-               //Handle the remainder of the entries: the counts sections
-               int anyCount = parts.length < 3 || parts[2].isEmpty() ? 0 : Integer.parseInt(parts[2]);
-               int fromCount = parts.length < 4 || parts[3].isEmpty() ? 0 : Integer.parseInt(parts[3]);
-               int toCount = parts.length < 5 || parts[4].isEmpty() ? 0 : Integer.parseInt(parts[4]);
-               
                //Actually add the data to the table
                List<Integer> entry = table.get(yearBucketIndex);
                //Design choice: Add the Any, From, and To as all the same thing. (treat From just like Any)
-               entry.set(columnIndex, entry.get(columnIndex) + anyCount + fromCount + toCount);
+               entry.set(columnIndex, entry.get(columnIndex) + rowCount);
+               
+               if (yearBucketIndex2 != -1) {
+                  //Actually add the data to the table
+                  List<Integer> entry2 = table.get(yearBucketIndex2);
+                  //Design choice: Add the Any, From, and To as all the same thing. (treat From just like Any)
+                  entry2.set(columnIndex, entry2.get(columnIndex) + rowCount);
+               }
                
             }
          } catch (Exception e) {
@@ -92,7 +180,7 @@ public class DataHandler {
          }
       }
       
-      writeTableToFile(table, outputFile, "year,birth,death,other");
+      writeTableToFile(table, outputFile, "year,birth,death,any,other");
       
    }
    
@@ -119,17 +207,20 @@ public class DataHandler {
       int starIndex = table.size() - 1;
       
       //Part 1: Read in data from the sources
-      for (String dataSource: DATA_SOURCES) {
+      for (String dataSource: ALL_DATA_SOURCES) {
          
          int columnIndex = -1;
          switch(dataSource) {
-            case DATA_SOURCE_HR:
+            case DATA_SOURCE_HR_A:
+            case DATA_SOURCE_HR_B:
                columnIndex = 1;
                break;
-            case DATA_SOURCE_TREE:
+            case DATA_SOURCE_TREE_A:
+            case DATA_SOURCE_TREE_B:
                columnIndex = 2;
                break;
-            case DATA_SOURCE_LLS:
+            case DATA_SOURCE_LLS_A:
+            case DATA_SOURCE_LLS_B:
                columnIndex = 3;
                break;
          }
@@ -142,20 +233,34 @@ public class DataHandler {
                
                String[] parts = line.split(",");
                
+               int rowCount = Integer.parseInt(parts[1]);
+               String[] dateParts = parts[0].replaceAll("\"", "").split(";");
+               String dateType = dateParts[0];
+               
                //Skip any records that are not birth years
-               if (!parts[1].equals("birth")) continue;
+               if (!dateType.equals("birth")) continue;
                
-               int yearBucketIndex = (parts[0].equals(STAR)
+               int yearBucketIndex = (dateParts[1].equals(STAR)
                                       ? starIndex
-                                      : (Math.min(Integer.parseInt(parts[0]), stopYear) / bucketSize));
+                                      : (Math.min(Integer.parseInt(dateParts[1]), stopYear) / bucketSize));
+               int yearBucketIndex2 = -1;
+               if (dateParts.length > 2) {
+                  yearBucketIndex2 = (dateParts[2].equals(STAR)
+                                      ? starIndex
+                                      : (Math.min(Integer.parseInt(dateParts[2]), stopYear) / bucketSize));
+               }
                
-               int anyCount = parts.length < 3 || parts[2].isEmpty() ? 0 : Integer.parseInt(parts[2]);
-               int fromCount = parts.length < 4 || parts[3].isEmpty() ? 0 : Integer.parseInt(parts[3]);
-               int toCount = parts.length < 5 || parts[4].isEmpty() ? 0 : Integer.parseInt(parts[4]);
-               
+               //Actually add the data to the table
                List<Integer> entry = table.get(yearBucketIndex);
                //Design choice: Add the Any, From, and To as all the same thing. (treat From just like Any)
-               entry.set(columnIndex, entry.get(columnIndex) + anyCount + fromCount + toCount);
+               entry.set(columnIndex, entry.get(columnIndex) + rowCount);
+               
+               if (yearBucketIndex2 != -1) {
+                  //Actually add the data to the table
+                  List<Integer> entry2 = table.get(yearBucketIndex2);
+                  //Design choice: Add the Any, From, and To as all the same thing. (treat From just like Any)
+                  entry2.set(columnIndex, entry2.get(columnIndex) + rowCount);
+               }
                
             }
          } catch (Exception e) {
@@ -180,27 +285,30 @@ public class DataHandler {
    public static void yearTypesSearchedBySystem(String outputFile) {
       verifyDataSources();
       
-      String[] yearTypes = {"birth", "death", "residence", "any", "marriage", "other"};
+      ArrayList<String> yearTypes = new ArrayList<String>(Arrays.asList("birth", "death", "residence", "any", "marriage", "other"));
       
       //Initialize the data structure to hold the sums
       ArrayList<List<Integer>> table = new ArrayList<>();
-      int rowCount = yearTypes.length;
-      for (int i = 0; i < rowCount; i++) {
+      int numOfRows = yearTypes.size();
+      for (int i = 0; i < numOfRows; i++) {
          table.add(Arrays.asList(i, 0, 0, 0));
       }
       
       //Part 1: Read in data from the sources
-      for (String dataSource: DATA_SOURCES) {
+      for (String dataSource: ALL_DATA_SOURCES) {
          
          int columnIndex = -1;
          switch(dataSource) {
-            case DATA_SOURCE_HR:
+            case DATA_SOURCE_HR_A:
+            case DATA_SOURCE_HR_B:
                columnIndex = 1;
                break;
-            case DATA_SOURCE_TREE:
+            case DATA_SOURCE_TREE_A:
+            case DATA_SOURCE_TREE_B:
                columnIndex = 2;
                break;
-            case DATA_SOURCE_LLS:
+            case DATA_SOURCE_LLS_A:
+            case DATA_SOURCE_LLS_B:
                columnIndex = 3;
                break;
          }
@@ -212,27 +320,19 @@ public class DataHandler {
             while (( line = reader.readLine() ) != null) {
                
                String[] parts = line.split(",");
+               int rowCount = Integer.parseInt(parts[1]);
+               String[] dateParts = parts[0].replaceAll("\"", "").split(";");
+               String dateType = dateParts[0];
                
-               int rowIndex;
-               boolean found = false;
-               for (rowIndex = 0; rowIndex < yearTypes.length; rowIndex++) {
-                  if (yearTypes[rowIndex].equals(parts[1])) {
-                     found = true;
-                     break;
-                  }
-               }
-               if (!found) {
+               int rowIndex = yearTypes.indexOf(dateType);
+               if (rowIndex == -1) {
                   System.out.println("Cannot find row index for type " + parts[1] + ".  Skipping..");
                   continue;
                }
                
-               int anyCount = parts.length < 3 || parts[2].isEmpty() ? 0 : Integer.parseInt(parts[2]);
-               int fromCount = parts.length < 4 || parts[3].isEmpty() ? 0 : Integer.parseInt(parts[3]);
-               int toCount = parts.length < 5 || parts[4].isEmpty() ? 0 : Integer.parseInt(parts[4]);
-               
                List<Integer> entry = table.get(rowIndex);
                //Design choice: Add the Any, From, and To as all the same thing. (treat From just like Any)
-               entry.set(columnIndex, entry.get(columnIndex) + anyCount + fromCount + toCount);
+               entry.set(columnIndex, entry.get(columnIndex) + rowCount);
                
             }
          } catch (Exception e) {
@@ -247,95 +347,11 @@ public class DataHandler {
    }
    
    /**
-    * Creates a dataset with three values.
-    * The first is the total number of dates searched.
-    * The second is the total number of searched dates that fell after
-    *    the given cutoffs
-    * The third is the ratio of living to total dates searched, multiplied by 10,000
-    * (because the data structure only supports Integers.)
-    * Recommended chart type: Pie chart.
-    * <br><br>
-    * Output is in the format: "totalSum, livingSum, ratio10000"
-    *
-    * @param outputFile Filename to have results saved to.  Make sure this is a .csv filename
-    * @param birthCutoff The first year that will be considered the birth of a likely living person
-    * @param otherCutoff The first year that will be considered an event of a likely living person (doesn't include death dates)
-    * @param stopYear Years after this year will not be counted.  Generally, this is the current year.
-    */
-   public static void livingPersonsPercentageStats(String outputFile, int birthCutoff, int otherCutoff, int stopYear) {
-      verifyDataSources();
-      
-      //Initialize the data structure to hold the sums
-      int totalSum = 0;
-      int livingSum = 0;
-      
-      //Part 1: Read in data from the sources
-      for (String dataSource: DATA_SOURCES) {
-         try (BufferedReader reader = new BufferedReader(new FileReader(dataSource))) {
-            
-            String line;
-            reader.readLine(); //Clear out headers
-            while (( line = reader.readLine() ) != null) {
-               
-               String[] parts = line.split(",");
-               
-               //Get the year of this row
-               int rowYear;
-               if (parts[0].equals(STAR)) {
-                  rowYear = 0;
-               } else {
-                  rowYear = Integer.parseInt(parts[0]);
-               }
-               
-               //Get the counts from this row
-               int anyCount = parts.length < 3 || parts[2].isEmpty() ? 0 : Integer.parseInt(parts[2]);
-               int fromCount = parts.length < 4 || parts[3].isEmpty() ? 0 : Integer.parseInt(parts[3]);
-               int toCount = parts.length < 5 || parts[4].isEmpty() ? 0 : Integer.parseInt(parts[4]);
-               int rowCount = anyCount + fromCount + toCount;
-               
-               //All realistic years' counts get added to the total
-               if (rowYear <= stopYear) { totalSum += rowCount; }
-               
-               //Add them in to the living persons total depending on the date type
-               switch (parts[1]) {
-                  case "birth":
-                     if (rowYear >= birthCutoff && rowYear <= stopYear) { livingSum += rowCount; }
-                     break;
-                  case "death":
-                     //Death dates do not get added to living person counts
-                     break;
-                  case "residence":
-                  case "any":
-                  case "other":
-                  case "marriage":
-                     if (rowYear >= otherCutoff && rowYear <= stopYear) { livingSum += rowCount; }
-                     break;
-                  default:
-                     System.out.println("Skipping line: Could not find index for type "
-                                        + parts[1] + " within " + dataSource + " at year "
-                                        + rowYear + "!");
-                     continue;
-               }
-            }
-         } catch (Exception e) {
-            System.out.println("Exception occured during \"searchedYearsAcrossAllSystems\" READ with file " + dataSource
-                               + "!\n" + e.getMessage());
-            e.printStackTrace();
-         }
-      }
-      
-      //Create table from statistics
-      ArrayList<List<Integer>> table = new ArrayList<>();
-      table.add(Arrays.asList(totalSum, livingSum, (int)(( (double)livingSum / (double)totalSum ) * 10000) ));
-      
-      writeTableToFile(table, outputFile, "totalSum,livingSum,ratio10000");
-   }
-   
-   /**
     * Creates a dataset that shows how many of the (probable) living person queries
     * come from each system (hr, tree, lls).  Recommended chart type: Pie Chart.
     * <br><br>
-    * Output is in the format: "hr,tree,lls"
+    * Output is in the format: "system,total,living"
+    * Final row is for all systems combined.
     *
     * @param outputFile Filename to have results saved to.  Make sure this is a .csv filename
     * @param birthCutoff The first year that will be considered the birth of a likely living person
@@ -345,23 +361,33 @@ public class DataHandler {
    public static void livingPersonSearchesBySystem(String outputFile, int birthCutoff, int otherCutoff, int stopYear) {
       verifyDataSources();
       
-      //Initialize the data structure to hold the sums
-      List<Integer> tableRow = Arrays.asList(0, 0, 0);
+      ArrayList<String> systems = new ArrayList<String>(Arrays.asList("hr", "tree", "lls", "total"));
       
-      //Part 1: Read in data from the sources
-      for (String dataSource: DATA_SOURCES) {
-         int sourceIndex = -1;
+      //Initialize the data structure to hold the sums
+      ArrayList<List<Integer>> table = new ArrayList<>();
+      int numOfRows = systems.size();
+      for (int i = 0; i < numOfRows; i++) {
+         table.add(Arrays.asList(i, 0, 0));
+      }
+      int totalSearches = 0;
+      int totalLivingSearches = 0;
+      
+      for (String dataSource: DATA_SOURCES_A) {
+         
+         int rowIndex = -1;
          switch (dataSource) {
-            case DATA_SOURCE_HR:
-               sourceIndex = 0;
+            case DATA_SOURCE_HR_A:
+               rowIndex = 0;
                break;
-            case DATA_SOURCE_TREE:
-               sourceIndex = 1;
+            case DATA_SOURCE_TREE_A:
+               rowIndex = 1;
                break;
-            case DATA_SOURCE_LLS:
-               sourceIndex = 2;
+            case DATA_SOURCE_LLS_A:
+               rowIndex = 2;
                break;
          }
+         List<Integer> tableRow = table.get(rowIndex);
+         
          try (BufferedReader reader = new BufferedReader(new FileReader(dataSource))) {
             
             String line;
@@ -370,45 +396,64 @@ public class DataHandler {
                
                String[] parts = line.split(",");
                
-               //Get the year of this row
-               int rowYear;
-               if (parts[0].equals(STAR)) {
-                  rowYear = 0;
-               } else {
-                  rowYear = Integer.parseInt(parts[0]);
+               int rowCount = Integer.parseInt(parts[1]);
+               String[] dateParts = parts[0].replaceAll("\"", "").split(";");
+               String dateType = dateParts[0];
+               
+               //This part is decently complicated.  This is because we care about the most recent date being searched.
+               //The most recent date is the date if it's not a range, and the end date if it's not a range.
+               //But if the range ends in a star, the real end date being searched is 10 years after the start.
+               //But if the range starts in a star, the end date is the given.
+               int rowYear = -11;
+               if (!dateParts[1].equals(STAR)) {
+                  rowYear = Integer.parseInt(dateParts[1]);
+               }
+               if (dateParts.length > 2) {
+                  if (dateParts[2].equals(STAR)) {
+                     rowYear += 10;
+                  } else {
+                     rowYear = Math.max(Integer.parseInt(dateParts[2]), rowYear);
+                  }
+               }
+               if (rowYear < 0) {
+                  //This is usually because both ends of the range are stars.
+                  System.out.println("Somehow, Row Date ended up less than zero.\nRow Date: " + rowYear + "\nLine: " + line);
+                  continue;
                }
                
-               //Get the counts from this row
-               int anyCount = parts.length < 3 || parts[2].isEmpty() ? 0 : Integer.parseInt(parts[2]);
-               int fromCount = parts.length < 4 || parts[3].isEmpty() ? 0 : Integer.parseInt(parts[3]);
-               int toCount = parts.length < 5 || parts[4].isEmpty() ? 0 : Integer.parseInt(parts[4]);
-               int rowCount = anyCount + fromCount + toCount;
+               int currentSystemTotalSearches = tableRow.get(1);
+               int currentSystemTotalLivingSearches = tableRow.get(2);
                
-               int currentCount = tableRow.get(sourceIndex);
+               currentSystemTotalSearches += rowCount;
+               totalSearches += rowCount;
                
                //Add them in to the living persons total depending on the date type
-               switch (parts[1]) {
+               switch (dateType) {
                   case "birth":
-                     if (rowYear >= birthCutoff && rowYear <= stopYear) { currentCount += rowCount; }
-                     break;
-                  case "death":
-                     //Death dates do not get added to living person counts
+                     if (rowYear >= birthCutoff && rowYear <= stopYear) {
+                        currentSystemTotalLivingSearches += rowCount;
+                        totalLivingSearches += rowCount;
+                     }
                      break;
                   case "residence":
                   case "any":
                   case "other":
                   case "marriage":
-                     if (rowYear >= otherCutoff && rowYear <= stopYear) { currentCount += rowCount; }
+                     if (rowYear >= otherCutoff && rowYear <= stopYear) {
+                        currentSystemTotalLivingSearches += rowCount;
+                        totalLivingSearches += rowCount;
+                     }
                      break;
                   default:
                      System.out.println("Skipping line: Could not find index for type "
-                                        + parts[1] + " within " + dataSource + " at year "
+                                        + dateType + " within " + dataSource + " at year "
                                         + rowYear + "!");
                      continue;
                }
                
                //Save the new count
-               tableRow.set(sourceIndex, currentCount);
+               tableRow.set(1, currentSystemTotalSearches);
+               tableRow.set(2, currentSystemTotalLivingSearches);
             }
          } catch (Exception e) {
             System.out.println("Exception occured during \"searchedYearsAcrossAllSystems\" READ with file " + dataSource
@@ -417,12 +462,56 @@ public class DataHandler {
          }
       }
       
-      //Flesh out a 2D structure to pass to method
-      ArrayList<List<Integer>> table = new ArrayList<>();
-      table.add(tableRow);
       
-      writeTableToFile(table, outputFile, "hr,tree,lls");
+      //Add in all the searches that originally included a death year into the total
+      // (but not into the number of living person searches)
+      for (String dataSource: DATA_SOURCES_B) {
+         
+         int rowIndex = -1;
+         switch (dataSource) {
+            case DATA_SOURCE_HR_B:
+               rowIndex = 0;
+               break;
+            case DATA_SOURCE_TREE_B:
+               rowIndex = 1;
+               break;
+            case DATA_SOURCE_LLS_B:
+               rowIndex = 2;
+               break;
+         }
+         List<Integer> tableRow = table.get(rowIndex);
+         
+         try (BufferedReader reader = new BufferedReader(new FileReader(dataSource))) {
+            
+            String line;
+            reader.readLine(); //Clear out headers
+            while (( line = reader.readLine() ) != null) {
+               
+               String[] parts = line.split(",");
+               String[] dateParts = parts[0].replaceAll("\"", "").split(";");
+               
+               int rowCount = Integer.parseInt(parts[1]);
+               String dateType = dateParts[0];
+               
+               //Add this row to the totals, without checking for living searches
+               totalSearches += rowCount;
+               tableRow.set(1, tableRow.get(1) + rowCount);
+            }
+         } catch (Exception e) {
+            System.out.println("Exception occured during \"searchedYearsAcrossAllSystems\" READ with file " + dataSource
+                               + "!\n" + e.getMessage());
+            e.printStackTrace();
+         }
+      }
+      
+      
+      List<Integer> lastRow = table.get(systems.size()-1);
+      lastRow.set(1, totalSearches);
+      lastRow.set(2, totalLivingSearches);
+      
+      writeTableToFileWithReplacements(table, outputFile, "system,total,living", systems);
    }
+   
    
    //----------------[ Helper Methods ]-------------------------
    
@@ -433,16 +522,30 @@ public class DataHandler {
     */
    private static void verifyDataSources() {
       boolean allFound = true;
-      if (!(new File(DATA_SOURCE_HR).exists())) {
-         System.out.println("Cannot find HR file at " + DATA_SOURCE_HR);
+      //Without Death Sources
+      if (!(new File(DATA_SOURCE_HR_A).exists())) {
+         System.out.println("Cannot find HR file at " + DATA_SOURCE_HR_A);
          allFound = false;
       }
-      if (!(new File(DATA_SOURCE_TREE).exists())) {
-         System.out.println("Cannot find Tree file at " + DATA_SOURCE_TREE);
+      if (!(new File(DATA_SOURCE_TREE_A).exists())) {
+         System.out.println("Cannot find Tree file at " + DATA_SOURCE_TREE_A);
          allFound = false;
       }
-      if (!(new File(DATA_SOURCE_LLS).exists())) {
-         System.out.println("Cannot find LLS file at " + DATA_SOURCE_LLS);
+      if (!(new File(DATA_SOURCE_LLS_A).exists())) {
+         System.out.println("Cannot find LLS file at " + DATA_SOURCE_LLS_A);
+         allFound = false;
+      }
+      //With Death Sources
+      if (!(new File(DATA_SOURCE_HR_B).exists())) {
+         System.out.println("Cannot find HR file B at " + DATA_SOURCE_HR_B);
+         allFound = false;
+      }
+      if (!(new File(DATA_SOURCE_TREE_B).exists())) {
+         System.out.println("Cannot find Tree file B at " + DATA_SOURCE_TREE_B);
+         allFound = false;
+      }
+      if (!(new File(DATA_SOURCE_LLS_B).exists())) {
+         System.out.println("Cannot find LLS file B at " + DATA_SOURCE_LLS_B);
          allFound = false;
       }
       
@@ -458,7 +561,7 @@ public class DataHandler {
     * @param header Header string to be written onto the first line
     */
    private static void writeTableToFile(List<List<Integer>> table, String outputFile, String header) {
-      try (FileWriter writer = new FileWriter(PATH_TO_OUTPUT + outputFile)) {
+      try (FileWriter writer = new FileWriter(PATH_TO_OUTPUT_FOLDER + outputFile)) {
          
          writer.write(header + "\n");
          for (List<Integer> line: table) {
@@ -488,12 +591,12 @@ public class DataHandler {
     * @param header Header string to be written onto the first line
     * @param replacements List of Strings that are represented by the first item of each line
     */
-   private static void writeTableToFileWithReplacements(List<List<Integer>> table, String outputFile, String header, String[] replacements) {
-      try (FileWriter writer = new FileWriter(PATH_TO_OUTPUT + outputFile)) {
+   private static void writeTableToFileWithReplacements(List<List<Integer>> table, String outputFile, String header, ArrayList<String> replacements) {
+      try (FileWriter writer = new FileWriter(PATH_TO_OUTPUT_FOLDER + outputFile)) {
          
          writer.write(header + "\n");
          for (List<Integer> line: table) {
-            writer.write(replacements[line.get(0)]);
+            writer.write(replacements.get(line.get(0)));
             for (int i = 1; i < line.size(); i++) {
                writer.write("," + line.get(i));
             }
