@@ -23,6 +23,7 @@ public class DataHandler {
    private static final String[] ALL_DATA_SOURCES = { DATA_SOURCE_HR_A, DATA_SOURCE_TREE_A, DATA_SOURCE_LLS_A,
                                                       DATA_SOURCE_HR_B, DATA_SOURCE_TREE_B, DATA_SOURCE_LLS_B};
    
+   
    /**
     * Creates a dataset that reflects the length of date ranges people are searching for.  This is
     * bucketed into groups of the size given.  Recommended chart type: Bar Graph.
@@ -87,7 +88,6 @@ public class DataHandler {
       writeTableToFile(table, outputFile, "length,count");
       
    }
-   
    
    /**
     * Creates a dataset that reflects the number of times that each
