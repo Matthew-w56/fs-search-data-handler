@@ -3,10 +3,17 @@ Date: June 2023
 
 # Overview
 
-  This program is used in conjunction with downloaded log summaries to produce the datasets
-  needed for charts and statistics in relation to the dates that people search on within
-  the system.
-
+  This is a project I built as a Summer intern at FamilySearch.  Our team handled the large
+  search system that enables searching through 12+ Billion records with an average response
+  time in the low 100ms range.  The team wanted to know how often users are attempting to
+  search for living people in FamilySearch (the site only holds information on deceased
+  persons so this leads to no search results, and a perception by the users that FamilySearch
+  must not be too good).  This script, when fed data downloaded from internally documented
+  queries in our search logs, outputs data nicely structured for creating charts and allowed
+  my team to understand more about how users attempted to utilize our services.  The data being
+  inputted and therefore the analysis that this script output are internal to FamilySearch, but
+  this repo shows how the data handling and transformations were done to produce valuable
+  insights from the bulk logs that we kept.
 
 # Instructions for use
 
